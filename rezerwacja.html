@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rezerwacja terminu | Art-Trans Serwis</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #0f1115; color: #ffffff; line-height: 1.6; }
+    header { background-color: #161a22; padding: 16px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #252a35; }
+    .logo { font-size: 1.3rem; font-weight: 700; }
+    .logo span { color: #ff6b00; }
+    .user-info { display: flex; align-items: center; gap: 15px; color: #a0a5b5; font-size: 0.9rem; }
+    .btn-logout { background: transparent; border: 1px solid #252a35; color: #c5c9d4; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+    .btn-logout:hover { border-color: #ff6b00; color: #ff6b00; }
+    .container { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    h1 { font-size: 1.8rem; margin-bottom: 10px; }
+    h1 span { color: #ff6b00; }
+    .subtitle { color: #a0a5b5; margin-bottom: 30px; }
+    .card { background: #1a1e27; border: 1px solid #252a35; border-radius: 12px; padding: 30px; margin-bottom: 25px; }
+    .card h2 { font-size: 1.2rem; margin-bottom: 20px; color: #ff6b00; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { display: block; margin-bottom: 6px; color: #c5c9d4; font-size: 0.9rem; }
+    input, select, textarea { width: 100%; padding: 11px 14px; background: #13161d; border: 1px solid #252a35; border-radius: 8px; color: white; font-size: 0.95rem; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #ff6b00; }
+    textarea { min-height: 100px; resize: vertical; }
+    .btn { background: #ff6b00; color: white; border: none; padding: 14px 32px; border-radius: 8px; font-size: 1.05rem; font-weight: 600; cursor: pointer; margin-top: 20px; }
+    .btn:hover { background: #e05e00; }
+    .btn:disabled { background: #555; cursor: not-allowed; }
+    .message { margin-top: 20px; padding: 14px; border-radius: 8px; text-align: center; display: none; }
+    .message.success { background: #0d3320; color: #4ade80; border: 1px solid #166534; display: block; }
+    .message.error { background: #3b1219; color: #f87171; border: 1px solid #7f1d1d; display: block; }
+    .my-bookings { margin-top: 40px; }
+    .booking-item { background: #13161d; border: 1px solid #252a35; border-radius: 10px; padding: 18px; margin-bottom: 12px; }
+    .status { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; }
+    .status.pending { background: #422006; color: #fbbf24; }
+    .status.accepted { background: #0d3320; color: #4ade80; }
+    .status.cancelled { background: #3b1219; color: #f87171; }
+    .status.completed { background: #1e3a5f; color: #60a5fa; }
+    @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo"><span>Art-Trans</span> Serwis</div>
+    <div class="user-info">
+      <span id="user-email"></span>
+      <button class="btn-logout" onclick="logout()">Wyloguj</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <h1>Zarezerwuj <span>termin</span></h1>
+    <p class="subtitle">Wypełnij formularz – skontaktujemy się w sprawie potwierdzenia.</p>
+
+    <form id="booking-form" onsubmit="handleBooking(event)">
+      <div class="card">
+        <h2>1. Dane firmy / klienta</h2>
+        <div class="form-grid">
+          <div class="form-group"><label>Nazwa firmy *</label><input type="text" id="company_name" required></div>
+          <div class="form-group"><label>Osoba kontaktowa *</label><input type="text" id="contact_name" required></div>
+          <div class="form-group"><label>Telefon *</label><input type="tel" id="phone" required placeholder="+48 500 000 000"></div>
+          <div class="form-group"><label>Email</label><input type="email" id="email"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>2. Miejsce awarii / postoju</h2>
+        <div class="form-grid">
+          <div class="form-group"><label>Kraj</label><input type="text" id="country" value="Polska"></div>
+          <div class="form-group"><label>Miejscowość *</label><input type="text" id="city" required></div>
+          <div class="form-group"><label>Ulica i numer *</label><input type="text" id="street" required></div>
+          <div class="form-group"><label>Kod pocztowy *</label><input type="text" id="postal_code" required placeholder="00-000"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3. Dane pojazdu</h2>
+        <div class="form-grid">
+          <div class="form-group"><label>Marka i model *</label><input type="text" id="bus_model" required placeholder="np. Mercedes Tourismo"></div>
+          <div class="form-group"><label>Rocznik</label><input type="number" id="bus_year" min="1990" max="2026" placeholder="2018"></div>
+          <div class="form-group full"><label>Numer rejestracyjny</label><input type="text" id="registration_number" placeholder="WX 12345"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>4. Opis usterki</h2>
+        <div class="form-grid">
+          <div class="form-group full"><label>Co się stało? *</label><textarea id="problem_description" required placeholder="Opisz problem..."></textarea></div>
+          <div class="form-group full"><label>Jakie błędy pokazuje komputer / diagnostyka?</label><textarea id="error_codes" placeholder="np. P0001, błąd ABS..."></textarea></div>
+          <div class="form-group full"><label>Co już było robione?</label><textarea id="previous_work" placeholder="np. wymieniony alternator 2 tygodnie temu..."></textarea></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>5. Preferowany termin</h2>
+        <div class="form-grid">
+          <div class="form-group"><label>Data *</label><input type="date" id="preferred_date" required></div>
+          <div class="form-group">
+            <label>Godzina (opcjonalnie)</label>
+            <select id="preferred_time">
+              <option value="">— wybierz —</option>
+              <option value="08:00">08:00</option><option value="09:00">09:00</option>
+              <option value="10:00">10:00</option><option value="11:00">11:00</option>
+              <option value="12:00">12:00</option><option value="13:00">13:00</option>
+              <option value="14:00">14:00</option><option value="15:00">15:00</option>
+              <option value="16:00">16:00</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn" id="submit-btn">Wyślij rezerwację</button>
+      <div id="message" class="message"></div>
+    </form>
+
+    <div class="my-bookings">
+      <h2 style="margin-bottom: 15px;">Moje rezerwacje</h2>
+      <div id="bookings-list"><p style="color:#a0a5b5;">Ładowanie...</p></div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    let currentUser = null;
+
+    async function init() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { window.location.href = 'auth.html'; return; }
+      currentUser = session.user;
+      document.getElementById('user-email').textContent = currentUser.email;
+
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      document.getElementById('preferred_date').min = tomorrow.toISOString().split('T')[0];
+
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+      if (profile) {
+        if (profile.company_name) document.getElementById('company_name').value = profile.company_name;
+        if (profile.full_name) document.getElementById('contact_name').value = profile.full_name;
+        if (profile.phone) document.getElementById('phone').value = profile.phone;
+        document.getElementById('email').value = currentUser.email;
+      }
+      loadMyBookings();
+    }
+
+    async function loadMyBookings() {
+      const { data, error } = await supabase.from('bookings').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+      const list = document.getElementById('bookings-list');
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p style="color:#a0a5b5;">Brak rezerwacji.</p>';
+        return;
+      }
+      list.innerHTML = data.map(b => `
+        <div class="booking-item">
+          <span class="status ${b.status}">${statusText(b.status)}</span>
+          <div><strong>${b.preferred_date}</strong> ${b.preferred_time || ''} – ${b.bus_model}</div>
+          <div style="color:#a0a5b5; font-size:0.9rem; margin-top:4px;">${b.city}, ${b.street} | ${b.company_name}</div>
+        </div>
+      `).join('');
+    }
+
+    function statusText(s) {
+      return { pending: 'Oczekuje', accepted: 'Zaakcept
