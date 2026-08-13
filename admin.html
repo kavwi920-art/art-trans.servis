@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Admina | Art-Trans Serwis</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #0f1115; color: #ffffff; line-height: 1.5; }
+    header { background-color: #161a22; padding: 16px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #252a35; }
+    .logo { font-size: 1.3rem; font-weight: 700; }
+    .logo span { color: #ff6b00; }
+    .user-info { display: flex; align-items: center; gap: 15px; color: #a0a5b5; font-size: 0.9rem; }
+    .btn-logout { background: transparent; border: 1px solid #252a35; color: #c5c9d4; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+    .btn-logout:hover { border-color: #ff6b00; color: #ff6b00; }
+    .container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
+    h1 { font-size: 1.7rem; margin-bottom: 25px; }
+    h1 span { color: #ff6b00; }
+    .filters { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
+    .filter-btn { padding: 8px 16px; background: #1a1e27; border: 1px solid #252a35; border-radius: 20px; color: #a0a5b5; cursor: pointer; font-size: 0.9rem; }
+    .filter-btn.active, .filter-btn:hover { background: #ff6b00; color: white; border-color: #ff6b00; }
+    .booking-card { background: #1a1e27; border: 1px solid #252a35; border-radius: 12px; padding: 22px; margin-bottom: 16px; }
+    .booking-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+    .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+    .status.pending { background: #422006; color: #fbbf24; }
+    .status.accepted { background: #0d3320; color: #4ade80; }
+    .status.cancelled { background: #3b1219; color: #f87171; }
+    .status.completed { background: #1e3a5f; color: #60a5fa; }
+    .booking-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 30px; font-size: 0.95rem; }
+    .booking-grid .label { color: #a0a5b5; font-size: 0.85rem; }
+    .booking-grid .value { margin-bottom: 8px; }
+    .actions { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn { padding: 9px 18px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+    .btn-accept { background: #166534; color: #4ade80; }
+    .btn-accept:hover { background: #15803d; }
+    .btn-cancel { background: #7f1d1d; color: #f87171; }
+    .btn-cancel:hover { background: #991b1b; }
+    .btn-complete { background: #1e3a5f; color: #60a5fa; }
+    .btn-complete:hover { background: #1e40af; }
+    .empty { text-align: center; color: #a0a5b5; padding: 40px; }
+    @media (max-width: 700px) { .booking-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo"><span>Art-Trans</span> Serwis – Admin</div>
+    <div class="user-info">
+      <span id="user-email"></span>
+      <button class="btn-logout" onclick="logout()">Wyloguj</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <h1>Panel <span>rezerwacji</span></h1>
+    <div class="filters">
+      <button class="filter-btn active" onclick="filterBookings('all')">Wszystkie</button>
+      <button class="filter-btn" onclick="filterBookings('pending')">Oczekujące</button>
+      <button class="filter-btn" onclick="filterBookings('accepted')">Zaakceptowane</button>
+      <button class="filter-btn" onclick="filterBookings('cancelled')">Anulowane</button>
+      <button class="filter-btn" onclick="filterBookings('completed')">Zakończone</button>
+    </div>
+    <div id="bookings-container"><p class="empty">Ładowanie...</p></div>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    let allBookings = [];
+    let currentFilter = 'all';
+
+    async function init() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { window.location.href = 'auth.html'; return; }
+
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+      if (!profile || profile.role !== 'admin') {
+        alert('Brak uprawnień administratora');
+        window.location.href = 'rezerwacja.html';
+        return;
+      }
+      document.getElementById('user-email').textContent = session.user.email;
+      loadBookings();
+    }
+
+    async function loadBookings() {
+      const { data, error } = await supabase.from('bookings').select('*').order('created_at', { ascending: false });
+      if (error) {
+        document.getElementById('bookings-container').innerHTML = '<p class="empty">Błąd: ' + error.message + '</p>';
+        return;
+      }
+      allBookings = data || [];
+      renderBookings();
+    }
+
+    function filterBookings(status) {
+      currentFilter = status;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      renderBookings();
+    }
+
+    function renderBookings() {
+      const container = document.getElementById('bookings-container');
+      let list = currentFilter === 'all' ? allBookings : allBookings.filter(b => b.status === currentFilter);
+      if (list.length === 0) {
+        container.innerHTML = '<p class="empty">Brak rezerwacji w tej kategorii.</p>';
+        return;
+      }
+      container.innerHTML = list.map(b => `
+        <div class="booking-card">
+          <div class="booking-header">
+            <div>
+              <span class="status ${b.status}">${statusText(b.status)}</span>
+              <strong style="margin-left:10px;">${b.preferred_date} ${b.preferred_time || ''}</strong>
+            </div>
+            <div style="color:#a0a5b5; font-size:0.85rem;">Zgłoszono: ${new Date(b.created_at).toLocaleString('pl-PL')}</div>
+          </div>
+          <div class="booking-grid">
+            <div><div class="label">Firma / Klient</div><div class="value"><strong>${b.company_name}</strong><br>${b.contact_name}<br>${b.phone}<br>${b.email || ''}</div></div>
+            <div><div class="label">Lokalizacja</div><div class="value">${b.street}<br>${b.postal_code} ${b.city}<br>${b.country}</div></div>
+            <div><div class="label">Pojazd</div><div class="value">${b.bus_model} ${b.bus_year || ''}<br>${b.registration_number || 'brak nr rej.'}</div></div>
+            <div><div class="label">Opis usterki</div><div class="value">${b.problem_description}</div></div>
+            ${b.error_codes ? `<div><div class="label">Kody błędów</div><div class="value">${b.error_codes}</div></div>` : ''}
+            ${b.previous_work ? `<div><div class="label">Wcześniejsze prace</div><div class="value">${b.previous_work}</div></div>` : ''}
+          </div>
+          <div class="actions">
+            ${b.status === 'pending' ? `
+              <button class="btn btn-accept" onclick="updateStatus('${b.id}', 'accepted')">Akceptuj</button>
+              <button class="btn btn-cancel" onclick="updateStatus('${b.id}', 'cancelled')">Anuluj</button>
+            ` : ''}
+            ${b.status === 'accepted' ? `
+              <button class="btn btn-complete" onclick="updateStatus('${b.id}', 'completed')">Oznacz jako zakończone</button>
+              <button class="btn btn-cancel" onclick="updateStatus('${b.id}', 'cancelled')">Anuluj</button>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function statusText(s) {
+      return { pending: 'Oczekuje', accepted: 'Zaakceptowana', cancelled: 'Anulowana', completed: 'Zakończona' }[s] || s;
+    }
+
+    async function updateStatus(id, status) {
+      const { error } = await supabase.from('bookings').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) { alert('Błąd: ' + error.message); return; }
+      loadBookings();
+    }
+
+    async function logout() {
+      await supabase.auth.signOut();
+      window.location.href = 'index.html';
+    }
+    init();
+  </script>
+</body>
+</html>
