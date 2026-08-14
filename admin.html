@@ -69,10 +69,10 @@
     let currentFilter = 'all';
 
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await sb.auth.getSession();
       if (!session) { window.location.href = 'auth.html'; return; }
 
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+      const { data: profile } = await sb.from('profiles').select('role').eq('id', session.user.id).single();
       if (!profile || profile.role !== 'admin') {
         alert('Brak uprawnień administratora');
         window.location.href = 'rezerwacja.html';
@@ -83,7 +83,7 @@
     }
 
     async function loadBookings() {
-      const { data, error } = await supabase.from('bookings').select('*').order('created_at', { ascending: false });
+      const { data, error } = await sb.from('bookings').select('*').order('created_at', { ascending: false });
       if (error) {
         document.getElementById('bookings-container').innerHTML = '<p class="empty">Błąd: ' + error.message + '</p>';
         return;
@@ -142,13 +142,13 @@
     }
 
     async function updateStatus(id, status) {
-      const { error } = await supabase.from('bookings').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+      const { error } = await sb.from('bookings').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
       if (error) { alert('Błąd: ' + error.message); return; }
       loadBookings();
     }
 
     async function logout() {
-      await supabase.auth.signOut();
+      await sb.auth.signOut();
       window.location.href = 'index.html';
     }
     init();
