@@ -171,9 +171,9 @@
   <script src="config.js"></script>
   <script>
     async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await sb.auth.getSession();
       if (session) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+        const { data: profile } = await sb.from('profiles').select('role').eq('id', session.user.id).single();
         if (profile && profile.role === 'admin') {
           window.location.href = 'admin.html';
         } else {
@@ -219,7 +219,7 @@
       const email = document.getElementById('login-email').value;
       const password = document.getElementById('login-password').value;
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
 
       if (error) {
         showMessage(error.message === 'Invalid login credentials' ? 'Nieprawidłowy email lub hasło' : error.message, 'error');
@@ -228,7 +228,7 @@
         return;
       }
 
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
+      const { data: profile } = await sb.from('profiles').select('role').eq('id', data.user.id).single();
       if (profile && profile.role === 'admin') {
         window.location.href = 'admin.html';
       } else {
@@ -248,7 +248,7 @@
       const email = document.getElementById('reg-email').value;
       const password = document.getElementById('reg-password').value;
 
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await sb.auth.signUp({
         email,
         password,
         options: {
@@ -264,21 +264,21 @@
       }
 
       if (data.user) {
-        await supabase.from('profiles').update({
+        await sb.from('profiles').update({
           full_name: fullName,
           company_name: company,
           phone: phone
         }).eq('id', data.user.id);
       }
 
-      showMessage('Konto utworzone! Sprawdź skrzynkę email i kliknij link potwierdzający. Potem możesz się zalogować.', 'success');
+      showMessage('Konto utworzone! Możesz się teraz zalogować.', 'success');
       btn.disabled = false;
       btn.textContent = 'Zarejestruj się';
 
       setTimeout(() => {
         showLogin();
         document.getElementById('login-email').value = email;
-      }, 3000);
+      }, 2000);
     }
   </script>
 </body>
