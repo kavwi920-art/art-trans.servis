@@ -127,7 +127,7 @@
     let currentUser = null;
 
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await sb.auth.getSession();
       if (!session) { window.location.href = 'auth.html'; return; }
       currentUser = session.user;
       document.getElementById('user-email').textContent = currentUser.email;
@@ -136,7 +136,7 @@
       tomorrow.setDate(tomorrow.getDate() + 1);
       document.getElementById('preferred_date').min = tomorrow.toISOString().split('T')[0];
 
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+      const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
       if (profile) {
         if (profile.company_name) document.getElementById('company_name').value = profile.company_name;
         if (profile.full_name) document.getElementById('contact_name').value = profile.full_name;
@@ -147,7 +147,7 @@
     }
 
     async function loadMyBookings() {
-      const { data, error } = await supabase.from('bookings').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+      const { data, error } = await sb.from('bookings').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
       const list = document.getElementById('bookings-list');
       if (error || !data || data.length === 0) {
         list.innerHTML = '<p style="color:#a0a5b5;">Brak rezerwacji.</p>';
@@ -163,4 +163,58 @@
     }
 
     function statusText(s) {
-      return { pending: 'Oczekuje', accepted: 'Zaakcept
+      return { pending: 'Oczekuje', accepted: 'Zaakceptowana', cancelled: 'Anulowana', completed: 'Zakończona' }[s] || s;
+    }
+
+    async function handleBooking(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true; btn.textContent = 'Wysyłanie...';
+
+      const booking = {
+        user_id: currentUser.id,
+        company_name: document.getElementById('company_name').value,
+        contact_name: document.getElementById('contact_name').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value || currentUser.email,
+        country: document.getElementById('country').value,
+        city: document.getElementById('city').value,
+        street: document.getElementById('street').value,
+        postal_code: document.getElementById('postal_code').value,
+        bus_model: document.getElementById('bus_model').value,
+        bus_year: document.getElementById('bus_year').value || null,
+        registration_number: document.getElementById('registration_number').value || null,
+        problem_description: document.getElementById('problem_description').value,
+        error_codes: document.getElementById('error_codes').value || null,
+        previous_work: document.getElementById('previous_work').value || null,
+        preferred_date: document.getElementById('preferred_date').value,
+        preferred_time: document.getElementById('preferred_time').value || null,
+        status: 'pending'
+      };
+
+      const { error } = await sb.from('bookings').insert([booking]);
+      if (error) {
+        showMessage('Błąd: ' + error.message, 'error');
+        btn.disabled = false; btn.textContent = 'Wyślij rezerwację';
+        return;
+      }
+      showMessage('Rezerwacja wysłana! Admin wkrótce ją potwierdzi.', 'success');
+      document.getElementById('booking-form').reset();
+      document.getElementById('country').value = 'Polska';
+      btn.disabled = false; btn.textContent = 'Wyślij rezerwację';
+      loadMyBookings();
+    }
+
+    function showMessage(text, type) {
+      const el = document.getElementById('message');
+      el.textContent = text; el.className = 'message ' + type;
+    }
+
+    async function logout() {
+      await sb.auth.signOut();
+      window.location.href = 'index.html';
+    }
+    init();
+  </script>
+</body>
+</html>
