@@ -252,7 +252,8 @@
         email,
         password,
         options: {
-          data: { full_name: fullName, company_name: company, phone: phone }
+          data: { full_name: fullName, company_name: company, phone: phone },
+          emailRedirectTo: 'https://kavwi920-art.github.io/art-trans.servis/auth.html'
         }
       });
 
@@ -271,14 +272,9 @@
         }).eq('id', data.user.id);
       }
 
-      showMessage('Konto utworzone! Możesz się teraz zalogować.', 'success');
+      showMessage('Konto utworzone! Sprawdź skrzynkę email i kliknij link potwierdzający.', 'success');
       btn.disabled = false;
       btn.textContent = 'Zarejestruj się';
-
-      setTimeout(() => {
-        showLogin();
-        document.getElementById('login-email').value = email;
-      }, 2000);
     }
   </script>
 </body>
